@@ -198,6 +198,61 @@ Memory Manager is designed with a modular architecture:
 - **Adapters**: Integration with popular frameworks like LangChain and LangGraph (future)
 - **Utils**: Helper utilities including token budgeting, prompt construction, and memory prioritization
 
+## Testing
+
+### Unit Testing
+
+Azentiq Memory Manager includes a comprehensive suite of unit tests to ensure functionality and stability. These tests mock external dependencies like Redis to run independently.
+
+#### Prerequisites
+
+Install the test dependencies:
+
+```bash
+pip install pytest pytest-cov mock
+```
+
+#### Running Unit Tests
+
+To run all unit tests:
+
+```bash
+# Run all tests with the unittest framework
+python -m unittest discover
+
+# Alternatively, use pytest with more detailed output
+python -m pytest
+```
+
+To run tests for a specific component:
+
+```bash
+# Test just the Memory Manager
+python -m unittest tests.test_memory_manager
+
+# Test just the Redis Store
+python -m unittest tests.storage.test_redis_store
+```
+
+#### Test Coverage
+
+To generate a test coverage report:
+
+```bash
+# Run coverage and generate report
+coverage run -m unittest discover
+coverage report -m
+
+# For HTML output (creates htmlcov/ directory)
+coverage html
+```
+
+The current test coverage is approximately 76%.
+
+### Integration Testing
+
+Integration tests that validate functionality with a real Redis instance are available in the `tests/integration` directory. See the integration testing documentation for details on setting up and running these tests.
+
 ## Token Budgeting System
 
 Azentiq Memory Manager includes a sophisticated token budgeting system that manages memory selection and adaptation based on token constraints. This system has been refactored into a modular, extensible architecture:
