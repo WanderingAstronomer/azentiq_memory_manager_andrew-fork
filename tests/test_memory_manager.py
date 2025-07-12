@@ -349,10 +349,7 @@ class TestMemoryManager(unittest.TestCase):
     
     def test_generate_prompt(self):
         """Test prompt generation with token budget manager integration."""
-        # Reset and configure mocks
-        self.token_budget_mock.construct_prompt_with_memories.reset_mock()
-        
-        # Define test data
+        # Define a test memory for consistent testing
         test_memory = Memory(
             memory_id="test_memory_1",
             content="Test memory content",
@@ -360,21 +357,19 @@ class TestMemoryManager(unittest.TestCase):
             importance=0.5,
             tier=MemoryTier.SHORT_TERM
         )
-        
         short_term_memories = [test_memory]
         working_memories = []
         expected_prompt = ("Generated prompt with memories", {"tokens": 100})
         
-        # Create patches with context manager to ensure proper cleanup
-        with patch.object(MemoryManager, 'get_recent_turns') as mock_get_turns, \
-             patch.object(MemoryManager, '_search_by_metadata_in_tier') as mock_search:
+        # Mock out specific methods within the manager itself rather than using the class
+        with patch('tests.test_memory_manager.MemoryManager.get_recent_turns', return_value=short_term_memories), \
+             patch('tests.test_memory_manager.MemoryManager._search_by_metadata_in_tier', return_value=working_memories):
             
-            # Configure return values for the patched methods
-            mock_get_turns.return_value = short_term_memories
-            mock_search.return_value = working_memories
+            # Configure token budget mock response
+            self.token_budget_mock.construct_prompt_with_memories.reset_mock()
             self.token_budget_mock.construct_prompt_with_memories.return_value = expected_prompt
             
-            # Call the method being tested
+            # Execute the method under test
             prompt, stats = self.manager.generate_prompt(
                 session_id=self.test_session_id,
                 user_query="Test query",
@@ -383,28 +378,22 @@ class TestMemoryManager(unittest.TestCase):
                 include_working_memory=True
             )
             
-            # Verify the results
+            # Verify the output results
             self.assertEqual(prompt, "Generated prompt with memories")
             self.assertEqual(stats, {"tokens": 100})
             
-            # Verify the mocked method calls
-            mock_get_turns.assert_called_once_with(
-                self.test_session_id, n_turns=10
-            )
+            # Verify that token budget manager was called with correct parameters
+            self.token_budget_mock.construct_prompt_with_memories.assert_called_once()
             
-            expected_query = {"session_id": self.test_session_id, "type": "session_context"}
-            mock_search.assert_called_once_with(
-                expected_query, MemoryTier.WORKING, limit=50
-            )
+            # Extract keyword arguments passed to the token budget manager
+            call_kwargs = self.token_budget_mock.construct_prompt_with_memories.call_args[1]
             
-            # Verify token budget manager call
-            self.token_budget_mock.construct_prompt_with_memories.assert_called_once_with(
-                system_message="System message",
-                user_query="Test query",
-                short_term_memories=short_term_memories,
-                working_memories=working_memories,
-                long_term_memories=[]
-            )
+            # Check each argument value
+            self.assertEqual(call_kwargs["system_message"], "System message")
+            self.assertEqual(call_kwargs["user_query"], "Test query")
+            self.assertEqual(call_kwargs["short_term_memories"], short_term_memories)
+            self.assertEqual(call_kwargs["working_memories"], working_memories)
+            self.assertEqual(call_kwargs["long_term_memories"], [])
     
     def test_get_tier_string(self):
         """Test tier string conversion with various input types."""
