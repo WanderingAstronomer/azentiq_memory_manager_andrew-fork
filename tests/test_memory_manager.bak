@@ -1,0 +1,524 @@
+"""Unit tests for the MemoryManager class."""
+
+import unittest
+from unittest.mock import MagicMock, patch
+import sys
+import os
+
+# Add project root to path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+import uuid
+
+from core.memory_manager import MemoryManager
+from core.interfaces import Memory, MemoryTier
+from storage.redis_store import RedisStore
+from utils.token_budget import TokenBudgetManager
+
+
+class TestMemoryManager(unittest.TestCase):
+    """Test suite for MemoryManager class."""
+    
+    def setUp(self):
+        """Set up test fixtures before each test method."""
+        # Create mocks for RedisStore and TokenBudgetManager
+        self.redis_patcher = patch('core.memory_manager.RedisStore')
+        self.token_patcher = patch('core.memory_manager.TokenBudgetManager')
+        
+        self.redis_mock_class = self.redis_patcher.start()
+        self.token_mock_class = self.token_patcher.start()
+        
+        # Create mock instances
+        self.redis_store_mock = MagicMock()
+        self.token_budget_mock = MagicMock()
+        
+        # Set up return values for the mock classes
+        self.redis_mock_class.return_value = self.redis_store_mock
+        self.token_mock_class.return_value = self.token_budget_mock
+        
+        # Create a test Memory instance
+        self.test_memory = Memory(
+            memory_id="test123",
+            content="Test memory content",
+            metadata={"tag": "test"},
+            importance=0.5,
+            tier=MemoryTier.WORKING
+        )
+        
+        # Create MemoryManager instance with test framework
+        self.manager = MemoryManager(
+            framework="test_framework"
+        )
+        
+        # Mock the search_by_metadata method that will be used in generate_prompt
+        self.manager.search_by_metadata = MagicMock(return_value=[])
+        
+        # Set a test session ID
+        self.test_session_id = "test_session"
+    
+    def tearDown(self):
+        """Tear down test fixtures after each test method."""
+        # Stop the patches
+        self.redis_patcher.stop()
+        self.token_patcher.stop()
+    
+    def test_init(self):
+        """Test initialization with different parameters."""
+        # Test that RedisStore was initialized with the correct framework
+        self.redis_mock_class.assert_called_with(
+            redis_url="redis://localhost:6379/0",  # Note the /0 suffix
+            expire_seconds=None,
+            framework="test_framework"
+        )
+        
+        # Test that TokenBudgetManager was initialized
+        self.token_mock_class.assert_called_once()
+        
+        # Test framework was stored
+        self.assertEqual(self.manager.framework, "test_framework")
+        
+        # Test default component_id is None
+        self.assertIsNone(self.manager.component_id)
+        
+        # Test with custom Redis URL
+        with patch('core.memory_manager.RedisStore') as redis_mock:
+            manager = MemoryManager(redis_url="redis://custom:6380")
+            redis_mock.assert_called_with(
+                redis_url="redis://custom:6380",
+                expire_seconds=None,
+                framework="app"
+            )
+    
+    def test_set_context(self):
+        """Test setting component context and propagation to dependencies."""
+        # Set context
+        self.manager.set_context("test_component")
+        
+        # Check component ID was stored
+        self.assertEqual(self.manager.component_id, "test_component")
+        
+        # Check context was propagated to dependencies
+        self.redis_store_mock.set_context.assert_called_with("test_component")
+        self.token_budget_mock.set_context.assert_called_with("test_component", None)
+        
+        # Test with session_id
+        self.manager.set_context("new_component", "session123")
+        self.assertEqual(self.manager.component_id, "new_component")
+        self.token_budget_mock.set_context.assert_called_with("new_component", "session123")
+    
+    def test_add_memory(self):
+        """Test adding a memory with proper tier handling and namespacing."""
+        # Set up mock for generated UUID
+        test_uuid = "7f8d3f7a-9c4d-4b8e-8e7d-6f5c4b3a2d1e"
+        with patch('uuid.uuid4', return_value=uuid.UUID(test_uuid)):
+            # Add memory
+            result_id = self.manager.add_memory(
+                content="New memory content",
+                metadata={"tag": "important"},
+                tier=MemoryTier.WORKING,
+                session_id=self.test_session_id
+            )
+            
+            # Verify UUID was used
+            self.assertEqual(result_id, test_uuid)
+            
+            # Verify memory was created with correct attributes
+            self.redis_store_mock.add.assert_called_once()
+            call_args = self.redis_store_mock.add.call_args[0]
+            memory_arg = call_args[0]
+            
+            # Verify memory attributes
+            self.assertEqual(memory_arg.memory_id, test_uuid)
+            self.assertEqual(memory_arg.content, "New memory content")
+            self.assertEqual(memory_arg.metadata["tag"], "important")
+            self.assertEqual(memory_arg.tier, MemoryTier.WORKING)
+            
+            # Check component_id was added to metadata
+            self.assertIsNone(memory_arg.metadata.get("component_id"))
+            
+            # Verify session_id was passed to store
+            self.assertEqual(call_args[1], self.test_session_id)
+    
+    def test_add_memory_with_component_context(self):
+        """Test adding a memory with component context set."""
+        # Set component context
+        self.manager.set_context("test_component")
+        
+        # Add memory
+        self.manager.add_memory(
+            content="Component memory",
+            metadata={},
+            tier=MemoryTier.SHORT_TERM,
+            session_id=self.test_session_id
+        )
+        
+        # Verify component_id was added to metadata
+        call_args = self.redis_store_mock.add.call_args[0]
+        memory_arg = call_args[0]
+        self.assertEqual(memory_arg.metadata.get("component_id"), "test_component")
+    
+    def test_get_memory(self):
+        """Test retrieving a memory with proper tier string conversion."""
+        # Set up mock to return a memory
+        self.redis_store_mock.get.return_value = self.test_memory
+        
+        # Get memory with enum tier
+        memory = self.manager.get_memory(
+            memory_id="test123",
+            tier=MemoryTier.WORKING,
+            session_id=self.test_session_id
+        )
+        
+        # Verify memory was returned
+        self.assertEqual(memory, self.test_memory)
+        
+        # Verify store was called with string tier
+        self.redis_store_mock.get.assert_called_with(
+            memory_id="test123",
+            tier_str="working",
+            session_id=self.test_session_id
+        )
+    
+    def test_get_memory_string_tier(self):
+        """Test retrieving a memory with string tier."""
+        # Set up mock to return a memory
+        self.redis_store_mock.get.return_value = self.test_memory
+        
+        # Get memory with string tier
+        memory = self.manager.get_memory(
+            memory_id="test123",
+            tier="working",
+            session_id=self.test_session_id
+        )
+        
+        # Verify memory was returned
+        self.assertEqual(memory, self.test_memory)
+        
+        # Verify store was called with same string tier
+        self.redis_store_mock.get.assert_called_with(
+            memory_id="test123",
+            tier_str="working",
+            session_id=self.test_session_id
+        )
+    
+    def test_get_memory_unknown_tier(self):
+        """Test retrieving a memory with unknown tier."""
+        # Get memory with unknown tier string
+        self.manager.get_memory(
+            memory_id="test123",
+            tier="unknown_tier",
+            session_id=self.test_session_id
+        )
+        
+        # Verify store was called with the tier string as is
+        self.redis_store_mock.get.assert_called_with(
+            memory_id="test123",
+            tier_str="unknown_tier",
+            session_id=self.test_session_id
+        )
+    
+    def test_update_memory(self):
+        """Test updating a memory with proper component context."""
+        # Set component context
+        self.manager.set_context("update_component")
+        
+        # Update memory
+        self.manager.update_memory(
+            self.test_memory,
+            session_id=self.test_session_id
+        )
+        
+        # Verify component_id was added to metadata
+        self.redis_store_mock.update.assert_called_once()
+        call_args = self.redis_store_mock.update.call_args[0]
+        memory_arg = call_args[0]
+        self.assertEqual(memory_arg.metadata.get("component_id"), "update_component")
+        
+        # Verify session_id was passed to store
+        self.assertEqual(call_args[1], self.test_session_id)
+    
+    def test_delete_memory(self):
+        """Test deleting a memory with proper tier string conversion."""
+        # Delete memory with enum tier
+        self.manager.delete_memory(
+            memory_id="test123",
+            tier=MemoryTier.SHORT_TERM,
+            session_id=self.test_session_id
+        )
+        
+        # Verify store was called with string tier
+        self.redis_store_mock.delete.assert_called_with(
+            memory_id="test123",
+            tier_str="short_term",
+            session_id=self.test_session_id
+        )
+    
+    def test_list_memories(self):
+        """Test listing memories with proper tier string conversion."""
+        # Set up mock to return memories
+        test_memories = [self.test_memory]
+        self.redis_store_mock.list.return_value = test_memories
+        
+        # List memories with enum tier
+        memories = self.manager.list_memories(
+            tier=MemoryTier.WORKING,
+            session_id=self.test_session_id,
+            limit=10,
+            offset=0
+        )
+        
+        # Verify memories were returned
+        self.assertEqual(memories, test_memories)
+        
+        # Verify store was called with string tier
+        self.redis_store_mock.list.assert_called_with(
+            tier_str="working",
+            session_id=self.test_session_id,
+            limit=10,
+            offset=0
+        )
+    
+    def test_search_by_metadata(self):
+        """Test searching memories by metadata with tier conversion."""
+        # Set up mock to return memories
+        test_memories = [self.test_memory]
+        self.redis_store_mock.search_by_metadata.return_value = test_memories
+        
+        # Search by metadata
+        memories = self.manager.search_by_metadata(
+            query={"tag": "important"},
+            tier=MemoryTier.WORKING,
+            limit=10
+        )
+        
+        # Verify memories were returned
+        self.assertEqual(memories, test_memories)
+        
+        # Print actual calls for debugging
+        print(f"\nActual calls to search_by_metadata: {self.redis_store_mock.search_by_metadata.call_args_list}")
+        print(f"Expected: query={{'tag': 'important'}}, limit=10, tier_str='working'\n")
+        
+        # Verify store was called with string tier
+        self.redis_store_mock.search_by_metadata.assert_called_with(
+            query={"tag": "important"},
+            limit=10,
+            tier_str="working"
+        )
+        tier_str="working",
+        session_id=self.test_session_id
+    )
+
+def test_get_memory_string_tier(self):
+    """Test retrieving a memory with string tier."""
+    # Set up mock to return a memory
+    self.redis_store_mock.get.return_value = self.test_memory
+    
+    # Get memory with string tier
+    memory = self.manager.get_memory(
+        memory_id="test123",
+        tier="working",
+        session_id=self.test_session_id
+    )
+    
+    # Verify memory was returned
+    self.assertEqual(memory, self.test_memory)
+    
+    # Verify store was called with same string tier
+    self.redis_store_mock.get.assert_called_with(
+        memory_id="test123",
+        tier_str="working",
+        session_id=self.test_session_id
+    )
+
+def test_get_memory_unknown_tier(self):
+    """Test retrieving a memory with unknown tier."""
+    # Get memory with unknown tier string
+    self.manager.get_memory(
+        memory_id="test123",
+        tier="unknown_tier",
+        session_id=self.test_session_id
+    )
+    
+    # Verify store was called with the tier string as is
+    self.redis_store_mock.get.assert_called_with(
+        memory_id="test123",
+        tier_str="unknown_tier",
+        session_id=self.test_session_id
+    )
+
+def test_update_memory(self):
+    """Test updating a memory with proper component context."""
+    # Set component context
+    self.manager.set_context("update_component")
+    
+    # Update memory
+    self.manager.update_memory(
+        self.test_memory,
+        session_id=self.test_session_id
+    )
+    
+    # Verify component_id was added to metadata
+    self.redis_store_mock.update.assert_called_once()
+    call_args = self.redis_store_mock.update.call_args[0]
+    memory_arg = call_args[0]
+    self.assertEqual(memory_arg.metadata.get("component_id"), "update_component")
+    
+    # Verify session_id was passed to store
+    self.assertEqual(call_args[1], self.test_session_id)
+
+def test_delete_memory(self):
+    """Test deleting a memory with proper tier string conversion."""
+    # Delete memory with enum tier
+    self.manager.delete_memory(
+        memory_id="test123",
+        tier=MemoryTier.SHORT_TERM,
+        session_id=self.test_session_id
+    )
+    
+    # Verify store was called with string tier
+    self.redis_store_mock.delete.assert_called_with(
+        memory_id="test123",
+        tier_str="short_term",
+        session_id=self.test_session_id
+    )
+
+def test_list_memories(self):
+    """Test listing memories with proper tier string conversion."""
+    # Set up mock to return memories
+    test_memories = [self.test_memory]
+    self.redis_store_mock.list.return_value = test_memories
+    
+    # List memories with enum tier
+    memories = self.manager.list_memories(
+        tier=MemoryTier.WORKING,
+        session_id=self.test_session_id,
+        limit=10,
+        offset=0
+    )
+    
+    # Verify memories were returned
+    self.assertEqual(memories, test_memories)
+    
+    # Verify store was called with string tier
+    self.redis_store_mock.list.assert_called_with(
+        tier_str="working",
+        session_id=self.test_session_id,
+        limit=10,
+        offset=0
+    )
+
+def test_search_by_metadata(self):
+    """Test searching memories by metadata with tier conversion."""
+    # Set up mock to return memories
+    test_memories = [self.test_memory]
+    self.redis_store_mock.search_by_metadata.return_value = test_memories
+    
+    # Search by metadata
+    memories = self.manager.search_by_metadata(
+        query={"tag": "important"},
+        tier=MemoryTier.WORKING,
+        limit=10
+    )
+    
+    # Verify memories were returned
+    self.assertEqual(memories, test_memories)
+    
+    # Print actual calls for debugging
+    print(f"\nActual calls to search_by_metadata: {self.redis_store_mock.search_by_metadata.call_args_list}")
+    print(f"Expected: query={{'tag': 'important'}}, limit=10, tier_str='working'\n")
+    
+    # Verify store was called with string tier
+    self.redis_store_mock.search_by_metadata.assert_called_with(
+        query={"tag": "important"},
+        limit=10,
+        tier_str="working"
+    )
+
+def test_generate_prompt(self):
+    """Test prompt generation with token budget manager integration."""
+    # Set up mocks for methods called by generate_prompt
+    short_term_memories = [self.test_memory]
+    working_memories = []
+    
+    # Mock the get_recent_turns method
+    self.manager.get_recent_turns = MagicMock(return_value=short_term_memories)
+    
+    # Mock the _search_by_metadata_in_tier method
+    self.manager._search_by_metadata_in_tier = MagicMock(return_value=working_memories)
+    
+    # Set up mock to return prompt tuple
+    expected_prompt = ("Generated prompt with memories", {"tokens": 100})
+    self.token_budget_mock.construct_prompt_with_memories.return_value = expected_prompt
+    
+    # Generate prompt
+    prompt, stats = self.manager.generate_prompt(
+        session_id=self.test_session_id,
+        user_query="Test query",
+        system_message="System message"
+    )
+    
+    # Verify prompt was returned
+    self.assertEqual(prompt, "Generated prompt with memories")
+    
+    # Verify get_recent_turns was called
+    self.manager.get_recent_turns.assert_called_with(self.test_session_id, n_turns=10)
+    
+    # Verify _search_by_metadata_in_tier was called with correct parameters
+    self.manager._search_by_metadata_in_tier.assert_called_with(
+        {"session_id": self.test_session_id, "type": "session_context"}, 
+        MemoryTier.WORKING, 
+        limit=50
+    )
+    
+    # Verify token budget manager was called with the right parameters
+    self.token_budget_mock.construct_prompt_with_memories.assert_called_with(
+        system_message="System message",
+        user_query="Test query",
+        short_term_memories=short_term_memories,
+        working_memories=working_memories,
+        long_term_memories=[]
+    )
+
+def test_get_tier_string(self):
+    """Test tier string conversion with various input types."""
+    # Test with enum
+    tier_str = self.manager._get_tier_string(MemoryTier.WORKING)
+    self.assertEqual(tier_str, "working")
+    
+    # Test with string
+    tier_str = self.manager._get_tier_string("working")
+    self.assertEqual(tier_str, "working")
+    
+    # Test with unknown string
+    tier_str = self.manager._get_tier_string("custom_tier")
+    self.assertEqual(tier_str, "custom_tier")
+    
+    # Test with None (should default to "working")
+    tier_str = self.manager._get_tier_string(None)
+    self.assertEqual(tier_str, "working")
+    
+    # Test with integer (should convert to string)
+    tier_str = self.manager._get_tier_string(123)
+    self.assertEqual(tier_str, "123")
+        tier_str = self.manager._get_tier_string(MemoryTier.WORKING)
+        self.assertEqual(tier_str, "working")
+        
+        # Test with string
+        tier_str = self.manager._get_tier_string("working")
+        self.assertEqual(tier_str, "working")
+        
+        # Test with unknown string
+        tier_str = self.manager._get_tier_string("custom_tier")
+        self.assertEqual(tier_str, "custom_tier")
+        
+        # Test with None (should default to "working")
+        tier_str = self.manager._get_tier_string(None)
+        self.assertEqual(tier_str, "working")
+        
+        # Test with integer (should convert to string)
+        tier_str = self.manager._get_tier_string(123)
+        self.assertEqual(tier_str, "123")
+
+
+if __name__ == "__main__":
+    unittest.main()

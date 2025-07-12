@@ -1,0 +1,114 @@
+version: "1.0"
+application:
+  name: "Research Assistant"
+  default_model: "gpt-4"
+  global_token_limit: 16000
+  reserved_tokens: 800  # Reserve tokens for system messages and overhead
+  
+memory_tiers:
+  short_term:
+    ttl_seconds: 1800  # 30 minutes
+    default_importance: 0.5
+  working:
+    ttl_seconds: null  # No expiration
+    default_importance: 0.7
+  long_term:
+    storage: "vector"
+    embedding_model: "text-embedding-3-small"
+    
+components:
+  - id: "planner"
+    type: "agent"
+    model: "gpt-4-turbo"
+    token_limit: 8000
+    memory_allocation:
+      short_term: 0.2  # 20% of token budget
+      working: 0.6     # 60% of token budget
+      long_term: 0.2   # 20% of token budget
+    token_allocation_rules:
+      max_memory_items: 15
+      recency_weight: 0.3
+      importance_weight: 0.7
+      relevance_threshold: 0.2
+      adaptation_strategy: "prioritize_working"
+    memory_priority: "high"
+    framework: "langchain"
+    
+  - id: "research_tool"
+    type: "tool"
+    token_limit: 4000
+    memory_allocation:
+      short_term: 0.1
+      working: 0.2
+      long_term: 0.7
+    token_allocation_rules:
+      max_memory_items: 10
+      recency_weight: 0.1
+      importance_weight: 0.3
+      relevance_threshold: 0.5
+      adaptation_strategy: "reduce_memories"
+    memory_priority: "medium"
+    framework: "app"
+    
+  - id: "synthesis_agent"
+    type: "agent"
+    model: "gpt-4"
+    token_limit: 12000
+    memory_allocation:
+      short_term: 0.4
+      working: 0.4
+      long_term: 0.2
+    token_allocation_rules:
+      max_memory_items: 20
+      recency_weight: 0.4
+      importance_weight: 0.6
+      relevance_threshold: 0.3
+      adaptation_strategy: "summarize"
+    memory_priority: "high"
+    framework: "langgraph"
+    
+workflows:
+  - id: "research_workflow"
+    components: ["planner", "research_tool", "synthesis_agent"]
+    memory_inheritance:
+      - from: "planner"
+        to: "research_tool"
+        metadata_filter: 
+          type: "task_context"
+      - from: "research_tool"
+        to: "synthesis_agent"
+        metadata_filter:
+          type: "research_result"
+    
+# Token Budget Configuration
+token_budget:
+  allocation_strategy: "dynamic"  # dynamic allocation based on component activity
+  default_tier_allocation:
+    short_term: 0.5
+    working: 0.3
+    long_term: 0.2
+  dynamic_allocation:
+    active_boost: 1.5       # Active components get 1.5x their allocation
+    idle_reduction: 0.5     # Idle components get 0.5x their allocation
+    minimum_allocation: 0.1 # No component gets less than 10% of its normal allocation
+  memory_compression:
+    enabled: true
+    threshold: 0.85        # Start compression at 85% token usage
+    target_reduction: 0.3  # Try to reduce by 30%
+    strategy: "hierarchical" # Use hierarchical compression
+  token_monitoring:
+    enabled: true
+    log_level: "info"
+    alert_threshold: 0.95   # Alert when reaching 95% of token budget
+
+# Memory Management Policies
+memory_policies:
+  - name: "token_overflow"
+    action: "prioritize_by_importance"
+  - name: "conflict_resolution"
+    action: "prefer_recent"
+  - name: "summarization"
+    action: "compress_memories"
+    parameters:
+      threshold: 10  # Compress when more than 10 memories
+      target_reduction: 0.5  # Reduce by 50%

@@ -1,0 +1,412 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Azentiq Memory Manager Configuration",
+  "description": "Schema for configuring memory management in multi-component agentic applications",
+  "type": "object",
+  "required": ["version", "application", "memory_tiers"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Schema version",
+      "pattern": "^\\d+\\.\\d+(\\.\\d+)?$",
+      "examples": ["1.0"]
+    },
+    "application": {
+      "type": "object",
+      "required": ["name", "global_token_limit"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Application name"
+        },
+        "default_model": {
+          "type": "string",
+          "description": "Default LLM model",
+          "examples": ["gpt-4", "llama-3-8b"]
+        },
+        "global_token_limit": {
+          "type": "integer",
+          "description": "Global token limit for the application",
+          "minimum": 1,
+          "examples": [8192, 16000]
+        },
+        "reserved_tokens": {
+          "type": "integer",
+          "description": "Tokens reserved for system messages and overhead",
+          "minimum": 0,
+          "default": 800
+        }
+      }
+    },
+    "memory_tiers": {
+      "type": "object",
+      "required": ["short_term", "working"],
+      "properties": {
+        "short_term": {
+          "type": "object",
+          "properties": {
+            "ttl_seconds": {
+              "type": "integer",
+              "description": "Time-to-live in seconds",
+              "minimum": 1,
+              "default": 1800
+            },
+            "default_importance": {
+              "type": "number",
+              "description": "Default importance score",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.5
+            }
+          }
+        },
+        "working": {
+          "type": "object",
+          "properties": {
+            "ttl_seconds": {
+              "type": ["integer", "null"],
+              "description": "Time-to-live in seconds (null = no expiration)",
+              "minimum": 1,
+              "default": null
+            },
+            "default_importance": {
+              "type": "number",
+              "description": "Default importance score",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.7
+            }
+          }
+        },
+        "long_term": {
+          "type": "object",
+          "properties": {
+            "storage": {
+              "type": "string",
+              "description": "Storage type",
+              "enum": ["vector", "graph", "sql"],
+              "default": "vector"
+            },
+            "embedding_model": {
+              "type": "string",
+              "description": "Embedding model for vector storage",
+              "examples": ["text-embedding-3-small"]
+            }
+          }
+        }
+      }
+    },
+    "components": {
+      "type": "array",
+      "description": "List of components in the application",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "token_limit"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Component identifier"
+          },
+          "type": {
+            "type": "string",
+            "description": "Component type",
+            "enum": ["agent", "tool", "workflow"]
+          },
+          "model": {
+            "type": "string",
+            "description": "LLM model for this component"
+          },
+          "token_limit": {
+            "type": "integer",
+            "description": "Token limit for this component",
+            "minimum": 1
+          },
+          "memory_allocation": {
+            "type": "object",
+            "description": "Memory allocation by tier",
+            "properties": {
+              "short_term": {
+                "type": "number",
+                "description": "Portion of token budget for short-term memory",
+                "minimum": 0,
+                "maximum": 1,
+                "default": 0.6
+              },
+              "working": {
+                "type": "number",
+                "description": "Portion of token budget for working memory",
+                "minimum": 0,
+                "maximum": 1,
+                "default": 0.3
+              },
+              "long_term": {
+                "type": "number",
+                "description": "Portion of token budget for long-term memory",
+                "minimum": 0,
+                "maximum": 1,
+                "default": 0.1
+              }
+            },
+            "additionalProperties": false
+          },
+          "token_allocation_rules": {
+            "type": "object",
+            "description": "Component-specific token allocation rules",
+            "properties": {
+              "max_memory_items": {
+                "type": "integer",
+                "description": "Maximum number of memory items to include",
+                "minimum": 0
+              },
+              "recency_weight": {
+                "type": "number",
+                "description": "Weight given to recency in memory selection",
+                "minimum": 0,
+                "maximum": 1,
+                "default": 0.5
+              },
+              "importance_weight": {
+                "type": "number",
+                "description": "Weight given to importance in memory selection",
+                "minimum": 0,
+                "maximum": 1,
+                "default": 0.5
+              },
+              "relevance_threshold": {
+                "type": "number",
+                "description": "Minimum relevance score for memory inclusion",
+                "minimum": 0,
+                "maximum": 1,
+                "default": 0.2
+              },
+              "adaptation_strategy": {
+                "type": "string",
+                "description": "How this component adapts to token pressure",
+                "enum": ["reduce_memories", "summarize", "prioritize_working", "prioritize_stm"],
+                "default": "reduce_memories"
+              }
+            },
+            "additionalProperties": false
+          },
+          "memory_priority": {
+            "type": "string",
+            "description": "Priority level for memory allocation",
+            "enum": ["low", "medium", "high"],
+            "default": "medium"
+          },
+          "framework": {
+            "type": "string",
+            "description": "Framework the component belongs to",
+            "enum": ["app", "langchain", "langgraph", "custom"],
+            "default": "app"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "workflows": {
+      "type": "array",
+      "description": "List of workflows in the application",
+      "items": {
+        "type": "object",
+        "required": ["id", "components"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Workflow identifier"
+          },
+          "components": {
+            "type": "array",
+            "description": "List of component IDs in this workflow",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "memory_inheritance": {
+            "type": "array",
+            "description": "Memory inheritance rules between components",
+            "items": {
+              "type": "object",
+              "required": ["from", "to"],
+              "properties": {
+                "from": {
+                  "type": "string",
+                  "description": "Source component ID"
+                },
+                "to": {
+                  "type": "string",
+                  "description": "Target component ID"
+                },
+                "metadata_filter": {
+                  "type": "object",
+                  "description": "Filter for which memories to inherit",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "token_budget": {
+      "type": "object",
+      "description": "Global token budget management configuration",
+      "properties": {
+        "allocation_strategy": {
+          "type": "string",
+          "description": "Strategy for allocating tokens across components",
+          "enum": ["static", "dynamic", "priority_based", "adaptive"],
+          "default": "static"
+        },
+        "default_tier_allocation": {
+          "type": "object",
+          "description": "Default allocation percentages by memory tier",
+          "properties": {
+            "short_term": {
+              "type": "number",
+              "description": "Portion for short-term memory",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.6
+            },
+            "working": {
+              "type": "number",
+              "description": "Portion for working memory",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.3
+            },
+            "long_term": {
+              "type": "number",
+              "description": "Portion for long-term memory",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.1
+            }
+          },
+          "additionalProperties": false
+        },
+        "dynamic_allocation": {
+          "type": "object",
+          "description": "Rules for dynamic token allocation",
+          "properties": {
+            "active_boost": {
+              "type": "number",
+              "description": "Token boost for active components",
+              "minimum": 1,
+              "default": 1.5
+            },
+            "idle_reduction": {
+              "type": "number",
+              "description": "Token reduction for idle components",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.5
+            },
+            "minimum_allocation": {
+              "type": "number",
+              "description": "Minimum token allocation percentage for any component",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.1
+            }
+          },
+          "additionalProperties": false
+        },
+        "memory_compression": {
+          "type": "object",
+          "description": "Memory compression settings",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Whether memory compression is enabled",
+              "default": false
+            },
+            "threshold": {
+              "type": "number",
+              "description": "Token usage percentage that triggers compression",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.9
+            },
+            "target_reduction": {
+              "type": "number",
+              "description": "Target reduction percentage",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.3
+            },
+            "strategy": {
+              "type": "string",
+              "description": "Compression strategy",
+              "enum": ["summarize", "filter_by_importance", "truncate", "hierarchical"],
+              "default": "filter_by_importance"
+            }
+          },
+          "additionalProperties": false
+        },
+        "token_monitoring": {
+          "type": "object",
+          "description": "Token usage monitoring settings",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Whether token monitoring is enabled",
+              "default": true
+            },
+            "log_level": {
+              "type": "string",
+              "description": "Log level for token usage events",
+              "enum": ["debug", "info", "warning", "error"],
+              "default": "info"
+            },
+            "alert_threshold": {
+              "type": "number",
+              "description": "Token usage percentage that triggers alerts",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.95
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    
+    "memory_policies": {
+      "type": "array",
+      "description": "Policies for memory management",
+      "items": {
+        "type": "object",
+        "required": ["name", "action"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Policy name"
+          },
+          "action": {
+            "type": "string",
+            "description": "Action to take",
+            "enum": [
+              "prioritize_by_importance", 
+              "prefer_recent", 
+              "prefer_relevant",
+              "drop_oldest",
+              "compress_memories"
+            ]
+          },
+          "parameters": {
+            "type": "object",
+            "description": "Additional parameters for the policy",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
