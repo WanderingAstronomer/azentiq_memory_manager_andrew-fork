@@ -12,14 +12,288 @@ Memory Manager provides a flexible framework for managing memory in AI agents an
 
 ## Features
 
-- ✅ Tiered memory architecture (short-term and working memory)
-- ✅ Redis backend with logical separation of memory tiers
-- ✅ Automatic TTL management for short-term memory (defaults to 30 minutes)
-- ✅ Token-aware memory retrieval for optimized LLM prompts
-- ✅ Metadata filtering and advanced search
-- ✅ Rich CLI for interacting with memory tiers
-- ✅ Templates for LangChain and LangGraph adapters
-- ✅ Designed for extensibility with additional backends
+### Tiered Memory Architecture
+
+Inspired by human memory systems, the memory architecture is divided into tiers, each with specific purposes:
+
+- **Short-term memory**: Recent conversation turns and ephemeral context
+- **Working memory**: Important facts, preferences, and session state
+- **Long-term memory**: Persistent knowledge and information
+
+```python
+# Example of using different memory tiers
+from core.memory_manager import MemoryManager, MemoryTier
+
+memory_manager = MemoryManager()
+
+# Add to short-term memory (conversation turn)
+memory_manager.add_memory(
+    content="What's the weather like today?",
+    metadata={"type": "conversation_turn", "role": "user"},
+    tier=MemoryTier.SHORT_TERM
+)
+
+# Add to working memory (user preference)
+memory_manager.add_memory(
+    content="User prefers detailed explanations",
+    metadata={"type": "preference"},
+    tier=MemoryTier.WORKING,
+    importance=0.8
+)
+```
+
+### Redis Backend with Logical Separation
+
+Memories are stored in Redis with logical separation using namespaces to organize and retrieve memories efficiently.
+
+```python
+# Redis key pattern used internally
+redis_key = f"memory:{tier}:{session_id}:{component_id}:{memory_id}"
+
+# Example: memory:working:default:main:04c169ca-2a45-44b3-9338-63fada870dad
+```
+
+### Automatic TTL Management
+
+Short-term memories automatically expire after a configurable time period (default: 30 minutes).
+
+```python
+# Adding a memory with custom TTL (in seconds)
+memory_manager.add_memory(
+    content="Remember this for 5 minutes only",
+    tier=MemoryTier.SHORT_TERM,
+    ttl=300  # 5 minutes in seconds
+)
+
+# Default TTL for short-term is applied automatically if not specified
+memory_manager.add_memory(
+    content="This uses default TTL (30 minutes)",
+    tier=MemoryTier.SHORT_TERM
+)
+```
+
+### Token-Aware Memory Retrieval
+
+Memories can be retrieved with awareness of token limits to optimize LLM prompt construction.
+
+```python
+# Generate a prompt with token budget constraint
+prompt, token_usage = memory_manager.generate_prompt(
+    session_id="user123",
+    system_message="You are a helpful assistant.",
+    user_query="What were my preferences again?",
+    max_tokens=1000  # Token budget for memories
+)
+
+print(f"Prompt generated with {token_usage} tokens")
+```
+
+### Metadata Filtering and Advanced Search
+
+Memories can be searched and filtered based on metadata attributes.
+
+```python
+# Search memories by metadata
+user_preferences = memory_manager.search_memories(
+    metadata_filter={"type": "preference", "session_id": "user123"}
+)
+
+# Advanced search combining filters
+important_facts = memory_manager.search_memories(
+    metadata_filter={"type": "fact"},
+    min_importance=0.7,
+    session_id="user123"
+)
+```
+
+### Rich CLI for Memory Management
+
+A command-line interface for interacting with the memory system.
+
+```bash
+# Add a memory via CLI
+python -m cli.main add "User prefers dark mode" --tier working --importance 0.8 \
+  --metadata '{"type":"preference", "session_id":"user123"}'
+
+# Search memories by metadata
+python -m cli.main search '{"type":"preference"}'
+
+# List all memories in working tier
+python -m cli.main list --tier working
+```
+
+### RESTful API Service with FastAPI
+
+A full-featured API service for managing memories programmatically.
+
+```python
+import requests
+
+api_url = "http://localhost:8000"
+
+# Create a memory via API
+response = requests.post(
+    f"{api_url}/memories",
+    json={
+        "content": "User's favorite color is blue",
+        "metadata": {"type": "preference"},
+        "tier": "working",
+        "importance": 0.7
+    }
+)
+
+memory = response.json()
+print(f"Created memory with ID: {memory['memory_id']}")
+```
+
+### Comprehensive API Documentation
+
+Interactive Swagger UI documentation available at http://localhost:8000/docs for exploring and testing API endpoints.
+
+### Full CRUD Operations for Memories
+
+Complete Create, Read, Update, Delete operations for memories via API endpoints.
+
+```python
+import requests
+
+api_url = "http://localhost:8000"
+memory_id = "your-memory-id"
+
+# Create a memory
+response = requests.post(
+    f"{api_url}/memories",
+    json={"content": "New memory content", "tier": "working"}
+)
+
+# Read a memory
+response = requests.get(f"{api_url}/memories/{memory_id}")
+
+# Update a memory
+response = requests.put(
+    f"{api_url}/memories/{memory_id}",
+    json={"content": "Updated content", "importance": 0.9}
+)
+
+# Delete a memory
+response = requests.delete(f"{api_url}/memories/{memory_id}")
+```
+
+### Session and Conversation Management
+
+Manage conversation turns and session context through dedicated API endpoints.
+
+```python
+import requests
+
+api_url = "http://localhost:8000"
+session_id = "user123"
+
+# Add a conversation turn
+response = requests.post(
+    f"{api_url}/sessions/{session_id}/turns",
+    json={
+        "content": "What's the weather forecast?",
+        "role": "user",
+        "importance": 0.7
+    }
+)
+
+# Get recent conversation history
+response = requests.get(f"{api_url}/sessions/{session_id}/turns")
+history = response.json()
+print(f"Retrieved {len(history['turns'])} conversation turns")
+```
+
+### Prompt Generation with Memory Integration
+
+Generate prompts that automatically integrate relevant memories from different tiers.
+
+```python
+import requests
+
+api_url = "http://localhost:8000"
+session_id = "user123"
+
+# Generate a prompt with integrated memories
+response = requests.post(
+    f"{api_url}/sessions/{session_id}/prompt",
+    json={
+        "system_message": "You are a helpful assistant.",
+        "user_query": "What were my preferences again?",
+        "include_working_memory": True,
+        "max_short_term_turns": 5
+    }
+)
+
+result = response.json()
+print(f"Prompt with {result['token_usage']} tokens: {result['prompt'][:100]}...")
+```
+
+### LangChain and LangGraph Adapters
+
+Templates for integrating with popular frameworks like LangChain and LangGraph.
+
+```python
+# Example LangChain integration template
+from langchain.memory import BaseMemory
+from core.memory_manager import MemoryManager
+
+class AzentiqMemory(BaseMemory):
+    memory_manager: MemoryManager
+    session_id: str
+    
+    def __init__(self, redis_url="redis://localhost:6379/0", session_id="default"):
+        self.memory_manager = MemoryManager(redis_url=redis_url)
+        self.session_id = session_id
+    
+    def load_memory_variables(self, inputs):
+        # Get relevant memories for the current context
+        memories = self.memory_manager.get_recent_turns(self.session_id, n_turns=5)
+        return {"memory": self._format_memories(memories)}
+    
+    def save_context(self, inputs, outputs):
+        # Save the current turn
+        user_input = inputs.get("input", "")
+        ai_output = outputs.get("output", "")
+        
+        self.memory_manager.add_conversation_turn(
+            session_id=self.session_id,
+            content=user_input,
+            role="user"
+        )
+        
+        self.memory_manager.add_conversation_turn(
+            session_id=self.session_id,
+            content=ai_output,
+            role="assistant"
+        )
+```
+
+### Extensible Architecture
+
+Designed for adding new storage backends, memory tiers, and integrations.
+
+```python
+# Example of implementing a custom memory store
+from core.interfaces import IMemoryStore, Memory
+
+class CustomMemoryStore(IMemoryStore):
+    def __init__(self, connection_string):
+        # Initialize your custom storage backend
+        self.db = YourCustomDatabase(connection_string)
+    
+    def add_memory(self, memory: Memory, namespace: str) -> str:
+        # Custom implementation for storing a memory
+        return self.db.insert(namespace, memory.to_dict())
+    
+    def get_memory(self, memory_id: str, namespace: str) -> Memory:
+        # Custom implementation for retrieving a memory
+        data = self.db.get(namespace, memory_id)
+        return Memory.from_dict(data)
+    
+    # Implement other required methods
+```
 
 ## Installation
 
@@ -134,6 +408,51 @@ python -m cli.main update <memory_id> --content "Updated content" --importance 0
 python -m cli.main delete <memory_id>
 ```
 
+### API Service
+
+The Memory Manager can also be accessed through a RESTful API service built with FastAPI:
+
+```bash
+# Start the API service (Windows)
+run_api_service.bat
+
+# Start the API service (manually)
+python -m services.run_api --reload
+```
+
+The API will be accessible at http://localhost:8000 with interactive documentation available at http://localhost:8000/docs.
+
+#### Basic API Usage Example
+
+```python
+import requests
+
+api_url = "http://localhost:8000"
+
+# Create a memory
+memory_data = {
+    "content": "User prefers dark mode in all applications",
+    "metadata": {
+        "type": "preference",
+        "source": "user_settings"
+    },
+    "tier": "working",
+    "importance": 0.8
+}
+
+response = requests.post(
+    f"{api_url}/memories",
+    json=memory_data
+)
+
+if response.status_code == 201:
+    memory = response.json()
+    memory_id = memory["memory_id"]
+    print(f"Memory created with ID: {memory_id}")
+
+# For detailed API documentation, see the docs/api directory
+```
+
 ### Python API Usage
 
 Import and use the memory manager in your Python code:
@@ -190,13 +509,192 @@ print(f"Memory tokens: {token_stats['short_term'] + token_stats['working']}")
 
 ## Architecture
 
-Memory Manager is designed with a modular architecture:
+The Azentiq Memory Manager follows a modular, extensible architecture designed for flexibility and compatibility with various AI frameworks. Here's a detailed breakdown of each component:
 
-- **Core**: Defines the interfaces and the main `MemoryManager` class
-- **Storage**: Implements different storage backends (Redis, SQLite, vector stores)
-- **CLI**: Command-line interface for interacting with the system
-- **Adapters**: Integration with popular frameworks like LangChain and LangGraph (future)
-- **Utils**: Helper utilities including token budgeting, prompt construction, and memory prioritization
+### Core Module
+
+The Core module defines the fundamental interfaces, data models, and the central `MemoryManager` class that orchestrates all memory operations.
+
+```python
+# Core components and their responsibilities
+from core.interfaces import Memory, MemoryTier, IMemoryStore, IVectorStore
+from core.memory_manager import MemoryManager
+
+# Example: Creating a memory manager with custom configuration
+manager = MemoryManager(
+    redis_url="redis://localhost:6379/0",  # Storage connection
+    model_token_limit=8192,                # LLM context window size
+    default_ttl=1800,                      # Default TTL for short-term memory
+    component_id="main"                     # Default component ID
+)
+```
+
+Key classes in Core:
+- `Memory`: Data model representing a memory item with content, metadata, and attributes
+- `MemoryTier`: Enumeration of memory tiers (SHORT_TERM, WORKING, LONG_TERM)
+- `IMemoryStore`: Interface for memory storage implementations
+- `MemoryManager`: Main class providing the high-level API for memory operations
+
+### Storage Module
+
+The Storage module contains implementations for different storage backends, allowing memory persistence across various databases and storage systems.
+
+```python
+# Available storage implementations
+from storage.redis_store import RedisStore       # Default Redis implementation
+from storage.in_memory_store import MemoryStore  # In-memory testing store
+# Future: SQLite, Vector stores, etc.
+
+# Example: Initializing a Redis store directly
+redis_store = RedisStore(redis_url="redis://localhost:6379/0")
+
+# Store a memory directly (normally handled by MemoryManager)
+memory_id = redis_store.add_memory(
+    memory=memory_obj,
+    namespace="memory:working:default:main"
+)
+```
+
+Features:
+- **Redis Store**: Primary implementation using Redis for high-performance, in-memory storage
+- **Namespace Management**: Logical separation of memories using structured key patterns
+- **TTL Support**: Automatic expiration of short-term memories
+- **Transaction Support**: Atomic operations for data consistency
+
+### Services Module
+
+The Services module provides a RESTful API built with FastAPI for interacting with the memory system over HTTP.
+
+```python
+# Starting the API service
+python -m services.run_api
+
+# Available API endpoints
+# GET /memories - List memories
+# POST /memories - Create a memory
+# GET /memories/{memory_id} - Get a specific memory
+# PUT /memories/{memory_id} - Update a memory
+# DELETE /memories/{memory_id} - Delete a memory
+# POST /sessions/{session_id}/turns - Add conversation turn
+# GET /sessions/{session_id}/turns - Get recent conversation turns
+# POST /sessions/{session_id}/prompt - Generate a prompt with memory integration
+```
+
+Components:
+- **API Routers**: Organized endpoint handlers for memories, sessions, and system operations
+- **Request/Response Models**: Pydantic schemas for input validation and response formatting
+- **Dependency Injection**: Clean separation of concerns for service components
+- **Middleware**: Error handling, logging, and request processing
+
+### CLI Module
+
+The CLI module offers a command-line interface for direct interaction with the memory system, ideal for testing and administrative tasks.
+
+```bash
+# CLI command structure
+python -m cli.main [command] [arguments] [options]
+
+# Available commands
+python -m cli.main add "Memory content" --tier working --importance 0.8
+python -m cli.main get [memory_id]
+python -m cli.main list --tier short_term
+python -m cli.main search '{"type":"preference"}'
+python -m cli.main update [memory_id] --content "New content"
+python -m cli.main delete [memory_id]
+```
+
+Features:
+- **CRUD Operations**: Full memory management capabilities
+- **Search & Filtering**: Query memories by metadata and attributes
+- **Formatting Options**: Configurable output formats
+- **Batch Processing**: Operate on multiple memories with a single command
+
+### Adapters Module
+
+The Adapters module provides integration templates for popular AI frameworks like LangChain and LangGraph, enabling seamless memory integration with existing systems.
+
+```python
+# Example LangChain integration
+from adapters.langchain import AzentiqMemoryAdapter
+
+# Create a memory adapter for LangChain
+memory_adapter = AzentiqMemoryAdapter(
+    session_id="user123",
+    redis_url="redis://localhost:6379/0"
+)
+
+# Use with LangChain
+from langchain.chains import ConversationChain
+from langchain.llms import OpenAI
+
+conversation = ConversationChain(
+    llm=OpenAI(),
+    memory=memory_adapter,
+    verbose=True
+)
+```
+
+Planned integrations:
+- **LangChain**: Memory classes compatible with LangChain's memory interfaces
+- **LangGraph**: State management within LangGraph workflows
+- **Custom Agents**: Simplified memory integration for custom agent frameworks
+
+### Utils Module
+
+The Utils module contains helper utilities for token budgeting, prompt construction, memory prioritization, and other auxiliary functions.
+
+```python
+# Token budgeting components
+from utils.token_budget import TokenEstimator, BudgetManager
+from utils.prompt import PromptConstructor, MemoryFormatter
+from utils.selection import PrioritySelector, RelevanceSelector
+
+# Example: Using the token budget system
+token_estimator = TokenEstimator()
+tokens = token_estimator.estimate_tokens("This is some text to estimate")
+
+# Example: Memory selection by relevance
+selector = RelevanceSelector(token_estimator=token_estimator)
+relevant_memories = selector.select_memories(
+    memories=memories_list,
+    query="What is the weather like?",
+    max_tokens=1000
+)
+```
+
+Key utilities:
+- **Token Estimation**: Calculate token usage for memory content and prompts
+- **Budget Management**: Distribute token budget across memory tiers
+- **Memory Selection**: Prioritize memories by importance, recency, or relevance
+- **Prompt Construction**: Format memories and build optimized prompts for LLMs
+
+### Integration Architecture
+
+The components interact in a layered architecture:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                     Client Applications                  │
+└───────────────┬─────────────────┬───────────────────────┘
+                │                 │                        
+┌───────────────▼─────┐ ┌────────▼────────┐ ┌────────────▼────────────┐
+│      CLI Module      │ │  Services API   │ │     Adapters Module     │
+└───────────┬─────────┘ └────────┬────────┘ └────────────┬────────────┘
+            │                    │                        │             
+            │          ┌─────────▼──────────┐            │             
+            └──────────►   MemoryManager    ◄────────────┘             
+                       └─────────┬──────────┘                          
+                                 │                                     
+                     ┌───────────▼────────────┐                        
+                     │     Storage Module     │                        
+                     └────────────────────────┘                        
+```
+
+This modular architecture allows for:
+- **Flexible Deployment**: Use only the components you need
+- **Multiple Interfaces**: CLI, API, or direct code integration
+- **Customizable Storage**: Swap storage implementations without changing application logic
+- **Framework Agnostic**: Integrate with any AI framework using adapters
 
 ## Testing
 

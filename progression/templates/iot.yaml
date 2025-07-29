@@ -1,0 +1,69 @@
+# IoT Memory Progression Configuration
+name: "iot_analytics"
+description: "Progression rules for IoT telemetry, anomalies, and insights"
+tiers:
+  - name: "SHORT_TERM"
+    ttl: 3600  # 1 hour in seconds
+    types:
+      - name: "telemetry"
+        retention_policy: "time_based"
+        max_items: 1000
+      - name: "conversation_turn"
+        retention_policy: "time_based"
+        max_items: 50
+  - name: "WORKING"
+    ttl: 2592000  # 30 days in seconds
+    types:
+      - name: "anomaly"
+        retention_policy: "importance_based"
+        min_importance: 0.6
+      - name: "insight"
+        retention_policy: "importance_based"
+        min_importance: 0.7
+      - name: "device_threshold"
+        retention_policy: "permanent"
+  - name: "LONG_TERM"
+    ttl: null  # indefinite
+    types:
+      - name: "historical_anomaly_summary"
+        retention_policy: "importance_based"
+        min_importance: 0.8
+
+rules:
+  # Rule for immediate anomaly detection
+  - name: "detect_anomalies"
+    trigger:
+      type: "event"
+      event: "telemetry_processed"
+    condition: "is_anomaly(telemetry, thresholds)"
+    action:
+      type: "create"
+      target_tier: "WORKING"
+      memory_type: "anomaly"
+      importance_calculator: "calculate_anomaly_importance"
+  
+  # Rule for generating insights from anomalies
+  - name: "generate_insights"
+    trigger:
+      type: "event"
+      event: "anomaly_detected"
+    condition: "anomaly.importance > 0.7"
+    action:
+      type: "create"
+      target_tier: "WORKING"
+      memory_type: "insight"
+      importance_calculator: "derive_from_anomaly"
+      
+  # Rule for summarizing historical anomalies
+  - name: "summarize_anomalies"
+    trigger:
+      type: "schedule"
+      cron: "0 0 * * 0"  # Weekly on Sunday at midnight
+    condition: "count_memories('anomaly', 'WORKING') > 20"
+    action:
+      type: "summarize"
+      source_tier: "WORKING"
+      target_tier: "LONG_TERM"
+      source_type: "anomaly"
+      target_type: "historical_anomaly_summary"
+      summarizer: "anomaly_summarizer"

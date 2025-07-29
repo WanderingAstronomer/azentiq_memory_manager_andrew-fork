@@ -1,0 +1,125 @@
+# Research Assistant Memory Progression Configuration
+name: "research_assistant"
+description: "Progression rules for a research assistant that builds knowledge graphs"
+tiers:
+  - name: "SHORT_TERM"
+    ttl: 7200  # 2 hours in seconds
+    types:
+      - name: "conversation_turn"
+        retention_policy: "time_based"
+        max_items: 30
+      - name: "research_query"
+        retention_policy: "time_based"
+        max_items: 20
+      - name: "search_result"
+        retention_policy: "time_based"
+        max_items: 50
+  - name: "WORKING"
+    ttl: 2592000  # 30 days in seconds
+    types:
+      - name: "entity"
+        retention_policy: "importance_based"
+        min_importance: 0.6
+      - name: "concept"
+        retention_policy: "importance_based"
+        min_importance: 0.6
+      - name: "relationship"
+        retention_policy: "importance_based"
+        min_importance: 0.7
+      - name: "research_summary"
+        retention_policy: "importance_based"
+        min_importance: 0.7
+  - name: "LONG_TERM"
+    ttl: null  # indefinite
+    types:
+      - name: "knowledge_node"
+        retention_policy: "importance_based"
+        min_importance: 0.8
+      - name: "topic_graph"
+        retention_policy: "permanent"
+      - name: "research_project"
+        retention_policy: "permanent"
+
+rules:
+  # Rule for entity extraction
+  - name: "extract_entities"
+    trigger:
+      type: "event"
+      event: "search_result_stored"
+    condition: "true"
+    action:
+      type: "extract_and_store"
+      source_tier: "SHORT_TERM"
+      target_tier: "WORKING"
+      source_type: "search_result"
+      target_type: "entity"
+      extractor: "entity_extractor"
+      
+  # Rule for concept formation
+  - name: "form_concepts"
+    trigger:
+      type: "count"
+      memory_type: "entity"
+      tier: "WORKING"
+      threshold: 5
+    condition: "entities_are_related(memories)"
+    action:
+      type: "create"
+      target_tier: "WORKING"
+      memory_type: "concept"
+      creator: "concept_former"
+      
+  # Rule for relationship mapping
+  - name: "map_relationships"
+    trigger:
+      type: "event"
+      event: "concept_stored"
+    condition: "true"
+    action:
+      type: "create"
+      target_tier: "WORKING"
+      memory_type: "relationship"
+      creator: "relationship_mapper"
+      
+  # Rule for summarizing research
+  - name: "summarize_research"
+    trigger:
+      type: "count"
+      memory_type: "search_result"
+      tier: "SHORT_TERM"
+      threshold: 10
+    condition: "all_on_same_topic(memories)"
+    action:
+      type: "summarize"
+      source_tier: "SHORT_TERM"
+      target_tier: "WORKING"
+      source_type: "search_result"
+      target_type: "research_summary"
+      summarizer: "research_summarizer"
+      
+  # Rule for knowledge graph building
+  - name: "build_knowledge_graph"
+    trigger:
+      type: "schedule"
+      cron: "0 0 * * 0"  # Weekly on Sunday at midnight
+    condition: "has_new_working_concepts_since_last_run()"
+    action:
+      type: "create_graph"
+      source_tier: "WORKING"
+      target_tier: "LONG_TERM"
+      source_types: ["entity", "concept", "relationship"]
+      target_type: "topic_graph"
+      graph_builder: "knowledge_graph_builder"
+      
+  # Rule for promoting important concepts to long-term knowledge
+  - name: "promote_concepts"
+    trigger:
+      type: "periodic"
+      interval: 86400  # 24 hours in seconds
+    condition: "memory.type == 'concept' && memory.importance >= 0.8 && memory.metadata.verification_count >= 3"
+    action:
+      type: "promote"
+      source_tier: "WORKING"
+      target_tier: "LONG_TERM"
+      source_type: "concept"
+      target_type: "knowledge_node"

@@ -1,0 +1,106 @@
+# Conversational AI Memory Progression Configuration
+name: "conversational_assistant"
+description: "Progression rules for conversational agents with user preferences and facts"
+tiers:
+  - name: "SHORT_TERM"
+    ttl: 1800  # 30 minutes in seconds
+    types:
+      - name: "conversation_turn"
+        retention_policy: "time_based"
+        max_items: 20
+      - name: "user_preference_temp"
+        retention_policy: "time_based"
+        max_items: 10
+      - name: "context_window"
+        retention_policy: "single_instance"
+  - name: "WORKING"
+    ttl: 1209600  # 14 days in seconds
+    types:
+      - name: "conversation_summary"
+        retention_policy: "importance_based"
+        min_importance: 0.6
+        max_items: 10
+      - name: "user_preference"
+        retention_policy: "importance_based"
+        min_importance: 0.7
+      - name: "important_fact"
+        retention_policy: "importance_based"
+        min_importance: 0.7
+  - name: "LONG_TERM"
+    ttl: null  # indefinite
+    types:
+      - name: "user_profile"
+        retention_policy: "single_instance"
+        update_strategy: "merge"
+      - name: "historical_summary"
+        retention_policy: "count_based"
+        max_items: 50
+
+rules:
+  # Rule for conversation summarization
+  - name: "summarize_conversation"
+    trigger:
+      type: "count"
+      memory_type: "conversation_turn"
+      threshold: 10
+    condition: "true"
+    action:
+      type: "summarize"
+      source_tier: "SHORT_TERM"
+      target_tier: "WORKING"
+      source_type: "conversation_turn"
+      target_type: "conversation_summary"
+      summarizer: "conversation_summarizer"
+      
+  # Rule for preference extraction
+  - name: "extract_preferences"
+    trigger:
+      type: "event"
+      event: "conversation_turn_stored"
+    condition: "contains_preference(memory.content)"
+    action:
+      type: "extract_and_store"
+      source_tier: "SHORT_TERM"
+      target_tier: "SHORT_TERM"
+      memory_type: "user_preference_temp"
+      extractor: "preference_extractor"
+      
+  # Rule for preference promotion
+  - name: "promote_preferences"
+    trigger:
+      type: "periodic"
+      interval: 300  # 5 minutes in seconds
+    condition: "memory.type == 'user_preference_temp' && memory.metadata.confidence >= 0.8"
+    action:
+      type: "promote"
+      source_tier: "SHORT_TERM"
+      target_tier: "WORKING"
+      source_type: "user_preference_temp"
+      target_type: "user_preference"
+      
+  # Rule for fact extraction
+  - name: "extract_facts"
+    trigger:
+      type: "event"
+      event: "conversation_turn_stored"
+    condition: "contains_fact(memory.content)"
+    action:
+      type: "extract_and_store"
+      source_tier: "SHORT_TERM"
+      target_tier: "WORKING"
+      memory_type: "important_fact"
+      extractor: "fact_extractor"
+      
+  # Rule for user profile building
+  - name: "update_user_profile"
+    trigger:
+      type: "schedule"
+      cron: "0 0 * * *"  # Daily at midnight
+    condition: "has_working_memories_for_user(user_id)"
+    action:
+      type: "merge"
+      source_tier: "WORKING"
+      target_tier: "LONG_TERM"
+      source_types: ["user_preference", "important_fact"]
+      target_type: "user_profile"
+      merger: "profile_merger"

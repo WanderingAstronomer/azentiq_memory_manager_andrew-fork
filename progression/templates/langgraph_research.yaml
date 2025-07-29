@@ -1,0 +1,110 @@
+# LangGraph Research Agent Memory Progression Template
+name: "langgraph_research"
+description: "Progression rules for LangGraph research agent with knowledge building"
+tiers:
+  - name: "SHORT_TERM"
+    ttl: 7200  # 2 hours in seconds
+    types:
+      - name: "graph_state"
+        retention_policy: "time_based"
+        max_items: 50
+      - name: "node_output"
+        retention_policy: "time_based"
+        max_items: 100
+      - name: "research_query"
+        retention_policy: "time_based"
+        max_items: 20
+      - name: "search_result"
+        retention_policy: "time_based"
+        max_items: 50
+  - name: "WORKING"
+    ttl: 2592000  # 30 days in seconds
+    types:
+      - name: "entity"
+        retention_policy: "importance_based"
+        min_importance: 0.6
+      - name: "relationship"
+        retention_policy: "importance_based"
+        min_importance: 0.6
+      - name: "research_summary"
+        retention_policy: "importance_based"
+        min_importance: 0.7
+  - name: "LONG_TERM"
+    ttl: null  # indefinite
+    types:
+      - name: "knowledge_node"
+        retention_policy: "importance_based"
+        min_importance: 0.8
+      - name: "topic_graph"
+        retention_policy: "permanent"
+
+rules:
+  # Rule for entity extraction from search results
+  - name: "extract_entities_from_search"
+    trigger:
+      type: "event"
+      event: "memory_added"
+    condition: "memory.metadata.type == 'node_output' && memory.metadata.node == 'search'"
+    action:
+      type: "extract_and_store"
+      source_tier: "SHORT_TERM"
+      target_tier: "WORKING"
+      memory_type: "entity"
+      extractor: "entity_extractor"
+      
+  # Rule for relationship identification between entities
+  - name: "identify_relationships"
+    trigger:
+      type: "count"
+      memory_type: "entity"
+      tier: "WORKING"
+      threshold: 2
+    condition: "entities_can_relate(memories)"
+    action:
+      type: "create"
+      target_tier: "WORKING"
+      memory_type: "relationship"
+      creator: "relationship_identifier"
+      
+  # Rule for summarizing research results
+  - name: "summarize_research"
+    trigger:
+      type: "count"
+      memory_type: "node_output"
+      tier: "SHORT_TERM"
+      threshold: 10
+    condition: "outputs_from_same_research(memories)"
+    action:
+      type: "summarize"
+      source_tier: "SHORT_TERM"
+      target_tier: "WORKING"
+      source_type: "node_output"
+      target_type: "research_summary"
+      summarizer: "research_summarizer"
+      
+  # Rule for building knowledge graph
+  - name: "build_knowledge_graph"
+    trigger:
+      type: "periodic"
+      interval: 86400  # 24 hours in seconds
+    condition: "has_new_working_entities_since_last_run()"
+    action:
+      type: "create_graph"
+      source_tier: "WORKING"
+      target_tier: "LONG_TERM"
+      source_types: ["entity", "relationship"]
+      target_type: "topic_graph"
+      graph_builder: "knowledge_graph_builder"
+      
+  # Rule for promoting important entities to long-term knowledge
+  - name: "promote_key_entities"
+    trigger:
+      type: "periodic"
+      interval: 43200  # 12 hours in seconds
+    condition: "memory.type == 'entity' && memory.importance >= 0.8 && entity_referenced_multiple_times(memory.metadata.entity)"
+    action:
+      type: "promote"
+      source_tier: "WORKING"
+      target_tier: "LONG_TERM"
+      source_type: "entity"
+      target_type: "knowledge_node"
