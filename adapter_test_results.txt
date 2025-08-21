@@ -1,0 +1,23 @@
+2025-08-16T14:46:23.349007 - === Testing ADK Adapter Integration ===
+2025-08-16T14:46:23.349735 - Mock memory manager initialized
+2025-08-16T14:46:23.350036 - Context set: component_id=adk_adapter, session_id=None
+2025-08-16T14:46:23.350733 - Step 1: Created ADK adapter with mock memory manager
+2025-08-16T14:46:23.351262 - Step 2: Created session with messages
+2025-08-16T14:46:23.351599 - Step 3: Adding session to memory...
+2025-08-16T14:46:23.351836 - Added memory: mem_1 with content: What's the weather in Tokyo?...
+2025-08-16T14:46:23.352055 - Added memory: mem_2 with content: The weather in Tokyo is 72°F a...
+2025-08-16T14:46:23.360645 - Session added to memory
+2025-08-16T14:46:23.361248 - Step 4: Searching memory for 'weather'...
+2025-08-16T14:46:23.361481 - Searching memories with text: 'weather', metadata: {'adk_source': True, 'session_id': 'test_session_123'}, tier: MemoryTier.SHORT_TERM
+2025-08-16T14:46:23.361723 - Found 2 results in text search
+2025-08-16T14:46:23.361940 - Searching memories with text: 'weather', metadata: {'adk_source': True, 'session_id': 'test_session_123'}, tier: MemoryTier.WORKING
+2025-08-16T14:46:23.362147 - Found 0 results in text search
+2025-08-16T14:46:23.362397 - Searching memories with text: 'weather', metadata: {'adk_source': True, 'session_id': 'test_session_123'}, tier: MemoryTier.LONG_TERM
+2025-08-16T14:46:23.362583 - Found 0 results in text search
+2025-08-16T14:46:23.362938 - Found 2 memories related to 'weather':
+2025-08-16T14:46:23.363174 - 1. Content: What's the weather in Tokyo?
+2025-08-16T14:46:23.363397 -    Role: user
+2025-08-16T14:46:23.363726 - 2. Content: The weather in Tokyo is 72°F and sunny.
+2025-08-16T14:46:23.363957 -    Role: assistant
+2025-08-16T14:46:23.364177 - === Test Complete ===
+2025-08-16T14:46:23.364889 - Test finished.

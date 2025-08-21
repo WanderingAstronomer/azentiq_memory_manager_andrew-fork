@@ -1,0 +1,40 @@
+2025-08-16T16:59:31.005214 - Starting GitHub ADK Integration Test
+2025-08-16T16:59:36.331862 - Successfully imported Azentiq Memory Manager components
+2025-08-16T16:59:36.332270 - Successfully imported Session from google.adk.sessions
+2025-08-16T16:59:36.333026 - Successfully imported Agent from google.adk.agents
+2025-08-16T16:59:36.333380 - Successfully imported BaseMemoryService from google.adk.memory
+2025-08-16T16:59:36.333661 - Successfully imported Event from google.adk.events.event
+2025-08-16T16:59:36.333999 - Successfully imported types from google.genai
+2025-08-16T16:59:36.334318 - Python version: 3.13.5 (tags/v3.13.5:6cb20a2, Jun 11 2025, 16:15:46) [MSC v.1943 64 bit (AMD64)]
+2025-08-16T16:59:36.345311 - === Testing Azentiq Integration with GitHub Google ADK ===
+2025-08-16T16:59:36.345919 - Memory manager created with Redis URL (may fall back to in-memory if Redis is unavailable)
+2025-08-16T16:59:36.346367 - Memory manager created with in-memory store
+2025-08-16T16:59:36.346731 - ADK adapter created with memory manager
+2025-08-16T16:59:36.347040 - Using real Session class from google.adk.sessions
+2025-08-16T16:59:36.347409 - Step 1: Testing minimal Event creation...
+2025-08-16T16:59:36.347965 - Step 1 success: Created minimal Event with author only
+2025-08-16T16:59:36.348403 - Step 2: Creating Content object...
+2025-08-16T16:59:36.348804 - Step 2 success: Content object created
+2025-08-16T16:59:36.349085 - Step 3: Creating Event with Content...
+2025-08-16T16:59:36.349417 - Step 3 success: Event created with Content
+2025-08-16T16:59:36.349705 - Step 4: Adding Event to Session...
+2025-08-16T16:59:36.349962 - Step 4 success: Event added to Session
+2025-08-16T16:59:36.350676 - Step 5: Adding a second Event to Session...
+2025-08-16T16:59:36.351171 - Step 5 success: Second Event added to Session
+2025-08-16T16:59:36.351500 - Created session with 2 events
+2025-08-16T16:59:36.351869 - Created session with messages
+2025-08-16T16:59:36.352568 - Adding session to memory...
+2025-08-16T16:59:36.353079 - Test failed with error:
+2025-08-16T16:59:36.355082 - Traceback (most recent call last):
+  File "C:\Users\aniln\CascadeProject\Back up\azentiq_memory_manager\samples\adk_weather_agent\github_adk_test.py", line 164, in test_with_github_adk
+    await adk_adapter.add_session_to_memory(session)
+  File "C:\Users\aniln\CascadeProject\Back up\azentiq_memory_manager\adapters\adk_adapter.py", line 116, in add_session_to_memory
+    logger.info(f"Adding {len(messages)} messages from ADK session {session.session_id} to memory")
+                                                                    ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\aniln\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic\main.py", line 991, in __getattr__
+    raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')
+AttributeError: 'Session' object has no attribute 'session_id'
+
+2025-08-16T16:59:36.355535 - Results saved to github_adk_test_results.txt
+2025-08-16T16:59:36.356317 - Test failed
+2025-08-16T16:59:36.356727 - Results saved to github_adk_test_results.txt

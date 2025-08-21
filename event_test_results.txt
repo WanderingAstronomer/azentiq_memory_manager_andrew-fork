@@ -1,0 +1,57 @@
+2025-08-16T16:49:57.772679 - Starting Event Test
+2025-08-16T16:49:57.773702 - Importing Google ADK modules...
+2025-08-16T16:50:03.574140 - Successfully imported Event from google.adk.events.event
+2025-08-16T16:50:03.574646 - Successfully imported types from google.genai
+2025-08-16T16:50:03.575334 - 
+==== Test 1: Create Event with simple Content object ====
+2025-08-16T16:50:03.575849 - Creating Content object with role and text part...
+2025-08-16T16:50:03.576564 - Content object created: Content(
+  parts=[
+    Part(
+      text='Hello, world!'
+    ),
+  ],
+  role='user'
+)
+2025-08-16T16:50:03.585690 - Creating Event object with author and content...
+2025-08-16T16:50:03.586082 - Event successfully created: Event(content=Content(
+  parts=[
+    Part(
+      text='Hello, world!'
+    ),
+  ],
+  role='user'
+), grounding_metadata=None, partial=None, turn_complete=None, finish_reason=None, error_code=None, error_message=None, interrupted=None, custom_metadata=None, usage_metadata=None, live_session_resumption_update=None, invocation_id='', author='user', actions=EventActions(skip_summarization=None, state_delta={}, artifact_delta={}, transfer_to_agent=None, escalate=None, requested_auth_configs={}), long_running_tool_ids=None, branch=None, id='381818b6-2741-4698-a654-06227da66e0a', timestamp=1755377403.585967)
+2025-08-16T16:50:03.586636 - Test 1 Passed!
+2025-08-16T16:50:03.587100 - 
+==== Test 2: Create Event with minimal required parameters ====
+2025-08-16T16:50:03.588088 - Creating Event with only author (required)...
+2025-08-16T16:50:03.588529 - Event created: Event(content=None, grounding_metadata=None, partial=None, turn_complete=None, finish_reason=None, error_code=None, error_message=None, interrupted=None, custom_metadata=None, usage_metadata=None, live_session_resumption_update=None, invocation_id='', author='user', actions=EventActions(skip_summarization=None, state_delta={}, artifact_delta={}, transfer_to_agent=None, escalate=None, requested_auth_configs={}), long_running_tool_ids=None, branch=None, id='8fffd2d7-59e2-4f50-a33e-988b6312900b', timestamp=1755377403.588455)
+2025-08-16T16:50:03.588843 - Test 2 Passed!
+2025-08-16T16:50:03.589162 - 
+==== Test 3: Create Event with string content (should fail) ====
+2025-08-16T16:50:03.589921 - Creating Event with string content...
+2025-08-16T16:50:03.590620 - Test 3 Failed as expected: 1 validation error for Event
+content
+  Input should be a valid dictionary or object to extract fields from [type=model_attributes_type, input_value='Hello, world!', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.11/v/model_attributes_type
+2025-08-16T16:50:03.592114 - Traceback (most recent call last):
+  File "C:\Users\aniln\CascadeProject\Back up\azentiq_memory_manager\samples\adk_weather_agent\event_test.py", line 77, in main
+    event = Event(author="user", content="Hello, world!")
+  File "C:\Users\aniln\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic\main.py", line 253, in __init__
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+pydantic_core._pydantic_core.ValidationError: 1 validation error for Event
+content
+  Input should be a valid dictionary or object to extract fields from [type=model_attributes_type, input_value='Hello, world!', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.11/v/model_attributes_type
+
+2025-08-16T16:50:03.592607 - 
+==== Test 4: Inspect Event class ====
+2025-08-16T16:50:03.593139 - Event class: <class 'google.adk.events.event.Event'>
+2025-08-16T16:50:03.593968 - Event class __init__ signature: {'data': 'Any', 'return': 'None'}
+2025-08-16T16:50:03.594274 - Event class fields: ['construct', 'copy', 'create', 'dict', 'from_orm', 'get_function_calls', 'get_function_responses', 'has_trailing_code_execution_result', 'is_final_response', 'json', 'model_computed_fields', 'model_config', 'model_construct', 'model_copy', 'model_dump', 'model_dump_json', 'model_extra', 'model_fields', 'model_fields_set', 'model_json_schema', 'model_parametrized_name', 'model_post_init', 'model_rebuild', 'model_validate', 'model_validate_json', 'model_validate_strings', 'new_id', 'parse_file', 'parse_obj', 'parse_raw', 'schema', 'schema_json', 'update_forward_refs', 'validate']
+2025-08-16T16:50:03.594752 - Minimal event attributes: {'content': None, 'grounding_metadata': None, 'partial': None, 'turn_complete': None, 'finish_reason': None, 'error_code': None, 'error_message': None, 'interrupted': None, 'custom_metadata': None, 'usage_metadata': None, 'live_session_resumption_update': None, 'invocation_id': '', 'author': 'user', 'actions': EventActions(skip_summarization=None, state_delta={}, artifact_delta={}, transfer_to_agent=None, escalate=None, requested_auth_configs={}), 'long_running_tool_ids': None, 'branch': None, 'id': 'cb35fd95-254d-4264-9b90-ae89568f0faf', 'timestamp': 1755377403.594678}
+2025-08-16T16:50:03.595232 - Test 4 Passed!
+2025-08-16T16:50:03.596020 - 
+==== All tests complete! ====
+2025-08-16T16:50:03.596640 - Results saved to ../../event_test_results.txt

@@ -1,0 +1,28 @@
+2025-08-16T16:42:24.081219 - Starting GitHub ADK Integration Test
+2025-08-16T16:42:29.529049 - Successfully imported Azentiq Memory Manager components
+2025-08-16T16:42:29.529607 - Successfully imported Session from google.adk.sessions
+2025-08-16T16:42:29.530037 - Successfully imported Agent from google.adk.agents
+2025-08-16T16:42:29.530514 - Successfully imported BaseMemoryService from google.adk.memory
+2025-08-16T16:42:29.531038 - Successfully imported Event from google.adk.events.event
+2025-08-16T16:42:29.531388 - Python version: 3.13.5 (tags/v3.13.5:6cb20a2, Jun 11 2025, 16:15:46) [MSC v.1943 64 bit (AMD64)]
+2025-08-16T16:42:29.533254 - === Testing Azentiq Integration with GitHub Google ADK ===
+2025-08-16T16:42:29.533881 - Memory manager created with Redis URL (may fall back to in-memory if Redis is unavailable)
+2025-08-16T16:42:29.534213 - Memory manager created with in-memory store
+2025-08-16T16:42:29.534675 - ADK adapter created with memory manager
+2025-08-16T16:42:29.535025 - Using real Session class from google.adk.sessions
+2025-08-16T16:42:29.535796 - ERROR: 1 validation error for Event
+content
+  Input should be a valid dictionary or object to extract fields from [type=model_attributes_type, input_value="What's the weather in Tokyo?", input_type=str]
+    For further information visit https://errors.pydantic.dev/2.11/v/model_attributes_type
+2025-08-16T16:42:29.537402 - Traceback (most recent call last):
+  File "C:\Users\aniln\CascadeProject\Back up\azentiq_memory_manager\samples\adk_weather_agent\github_adk_test.py", line 120, in test_with_github_adk
+    user_event1 = Event(author="user", content="What's the weather in Tokyo?")
+  File "C:\Users\aniln\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic\main.py", line 253, in __init__
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+pydantic_core._pydantic_core.ValidationError: 1 validation error for Event
+content
+  Input should be a valid dictionary or object to extract fields from [type=model_attributes_type, input_value="What's the weather in Tokyo?", input_type=str]
+    For further information visit https://errors.pydantic.dev/2.11/v/model_attributes_type
+
+2025-08-16T16:42:29.539258 - Test failed
+2025-08-16T16:42:29.539644 - Results saved to github_adk_test_results.txt

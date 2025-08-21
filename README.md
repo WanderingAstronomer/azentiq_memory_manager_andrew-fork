@@ -230,9 +230,11 @@ result = response.json()
 print(f"Prompt with {result['token_usage']} tokens: {result['prompt'][:100]}...")
 ```
 
-### LangChain and LangGraph Adapters
+### Framework Adapters (LangChain, LangGraph, Google ADK)
 
-Templates for integrating with popular frameworks like LangChain and LangGraph.
+Templates and adapters for integrating with popular frameworks like LangChain, LangGraph, and Google ADK.
+
+#### LangChain Integration
 
 ```python
 # Example LangChain integration template
@@ -269,6 +271,54 @@ class AzentiqMemory(BaseMemory):
             role="assistant"
         )
 ```
+
+#### Google ADK Integration
+
+Azentiq Memory Manager provides a dedicated adapter for Google's Agent Development Kit (ADK):
+
+```python
+from adapters.adk_adapter import AzentiqAdkMemoryAdapter
+from core.interfaces import MemoryTier
+
+# Initialize the adapter
+adk_memory_service = AzentiqAdkMemoryAdapter(
+    redis_url="redis://localhost:6379/0",
+    default_tier=MemoryTier.SHORT_TERM,
+    default_importance=0.5,
+    default_ttl=3600  # 1 hour in seconds
+)
+
+# Add a session to memory
+from google.adk.sessions.session import Session
+from google.adk.events.event import Event
+from google.genai import types
+
+# Create a session
+session = Session(
+    id="user123_session",
+    app_name="my_agent",
+    user_id="user123"
+)
+
+# Add events to session
+user_content = types.Content(
+    role="user",
+    parts=[types.Part(text="What's the weather today?")]
+)
+session.events.append(Event(author="user", content=user_content))
+
+# Store session in memory
+await adk_memory_service.add_session_to_memory(session)
+
+# Search memory
+results = await adk_memory_service.search_memory(
+    query="weather",
+    session_id="user123_session",
+    limit=5
+)
+```
+
+See `adapters/ADKAdapter_readme.md` for detailed documentation on the Google ADK adapter.
 
 ### Extensible Architecture
 

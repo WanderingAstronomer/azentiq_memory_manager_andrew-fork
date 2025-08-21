@@ -9,6 +9,13 @@
 6. Sample Applications
 7. Best Practices
 8. Agentic AI Integration
+   - 8.1 Separation of Concerns
+   - 8.2 Context Window Optimization
+   - 8.3 Progressive Memory Architecture
+   - 8.4 Integration with Agent Frameworks
+     - 8.4.1 LangChain Integration
+     - 8.4.2 Google ADK Integration
+   - 8.5 Memory-Aware Agent Design Patterns
 
 ## 1. Introduction
 
@@ -409,7 +416,7 @@ for memory in retrieved_memories:
 
 ## 8. Agentic AI Integration
 
-The Azentiq Memory Manager provides a specialized framework for autonomous agent development, enabling a critical separation of concerns that maximizes development efficiency and agent capabilities.
+The Azentiq Memory Manager provides a specialized framework for autonomous agent development, enabling a critical separation of concerns that maximizes development efficiency and agent capabilities. It integrates with various agent frameworks including Google's Agent Development Kit (ADK), LangChain, and LangGraph.
 
 ### 8.1 Separation of Concerns
 
@@ -516,6 +523,8 @@ rules:
 
 The Azentiq Memory Manager integrates seamlessly with popular agent frameworks:
 
+#### 8.4.1 LangChain Integration
+
 ```python
 # LangChain integration example
 from langchain.agents import AgentExecutor, create_react_agent
@@ -549,6 +558,68 @@ agent_memory = AzentiqMemoryAdapter(memory_manager, "session123")
 agent = create_react_agent(llm, tools, prompt, agent_memory)
 agent_executor = AgentExecutor(agent=agent, tools=tools, memory=agent_memory)
 ```
+
+#### 8.4.2 Google ADK Integration
+
+Azentiq Memory Manager provides a dedicated adapter for Google's Agent Development Kit (ADK), offering a comprehensive memory service implementation for ADK-based agents:
+
+```python
+from adapters.adk_adapter import AzentiqAdkMemoryAdapter
+from core.interfaces import MemoryTier
+
+# Initialize the ADK adapter
+adk_adapter = AzentiqAdkMemoryAdapter(
+    redis_url="redis://localhost:6379/0",
+    default_tier=MemoryTier.SHORT_TERM,
+    default_importance=0.5,
+    default_ttl=3600  # 1 hour in seconds
+)
+
+# Use with Google ADK session
+from google.adk.sessions.session import Session
+from google.adk.events.event import Event
+from google.genai import types
+
+# Create an ADK session
+session = Session(
+    id="user123_session",
+    app_name="my_agent",
+    user_id="user123"
+)
+
+# Add user query as an event
+user_content = types.Content(
+    role="user",
+    parts=[types.Part(text="What's the weather today?")]
+)
+user_event = Event(author="user", content=user_content)
+session.events.append(user_event)
+
+# Add agent response as an event
+assistant_content = types.Content(
+    role="assistant",
+    parts=[types.Part(text="The weather is sunny with a high of 75°F.")]
+)
+assistant_event = Event(author="assistant", content=assistant_content)
+session.events.append(assistant_event)
+
+# Store session in memory
+await adk_adapter.add_session_to_memory(session)
+
+# Later, search for relevant memories
+results = await adk_adapter.search_memory(
+    query="weather",
+    session_id="user123_session",
+    limit=5
+)
+
+# Process results
+for memory in results:
+    print(f"Content: {memory['content']}")
+    print(f"Role: {memory['metadata']['role']}")
+```
+
+**Implementation Recommendation**: When implementing Google ADK integration, ensure that you understand the ADK Session and Event structure. The adapter automatically maps ADK events to appropriate memory tiers and handles metadata enrichment. For advanced ADK agents, consider custom importance scoring based on event characteristics.
 
 **Implementation Recommendation**: Create adapter classes that implement framework-specific memory interfaces while leveraging the full capabilities of the Azentiq Memory Manager underneath.
 

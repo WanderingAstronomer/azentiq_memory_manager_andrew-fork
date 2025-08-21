@@ -1,0 +1,19 @@
+Python version: 3.13.5 (tags/v3.13.5:6cb20a2, Jun 11 2025, 16:15:46) [MSC v.1943 64 bit (AMD64)]
+Verifying Google ADK module structure...
+SUCCESS: Imported google.adk
+Version: 1.11.0
+Location: C:\Users\aniln\CascadeProject\Back up\azentiq_memory_manager\google_adk_repo\src\google\adk\__init__.py
+SUCCESS: Imported google.adk.agents
+Location: C:\Users\aniln\CascadeProject\Back up\azentiq_memory_manager\google_adk_repo\src\google\adk\agents\__init__.py
+Public attributes: ['Agent', 'BaseAgent', 'InvocationContext', 'LiveRequest', 'LiveRequestQueue', 'LlmAgent', 'LoopAgent', 'ParallelAgent', 'RunConfig', 'SequentialAgent']
+SUCCESS: Found Agent class in google.adk.agents
+SUCCESS: Imported google.adk.memory
+Location: C:\Users\aniln\CascadeProject\Back up\azentiq_memory_manager\google_adk_repo\src\google\adk\memory\__init__.py
+Public attributes: ['BaseMemoryService', 'InMemoryMemoryService', 'VertexAiMemoryBankService', 'VertexAiRagMemoryService', 'base_memory_service', 'in_memory_memory_service', 'logger', 'logging', 'memory_entry', 'vertex_ai_memory_bank_service']
+Memory classes: ['BaseMemoryService', 'InMemoryMemoryService', 'VertexAiMemoryBankService', 'VertexAiRagMemoryService']
+SUCCESS: Found BaseMemoryService in google.adk.memory
+SUCCESS: Imported google.adk.sessions
+Location: C:\Users\aniln\CascadeProject\Back up\azentiq_memory_manager\google_adk_repo\src\google\adk\sessions\__init__.py
+Public attributes: ['BaseSessionService', 'DatabaseSessionService', 'InMemorySessionService', 'Session', 'State', 'VertexAiSessionService', 'base_session_service', 'database_session_service', 'in_memory_session_service', 'logger']
+Session classes: ['BaseSessionService', 'DatabaseSessionService', 'InMemorySessionService', 'Session', 'State', 'VertexAiSessionService']
+SUCCESS: Found Session class in google.adk.sessions

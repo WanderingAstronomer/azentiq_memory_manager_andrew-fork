@@ -1,0 +1,7 @@
+Python version: 3.13.5 (tags/v3.13.5:6cb20a2, Jun 11 2025, 16:15:46) [MSC v.1943 64 bit (AMD64)]
+Attempting to import Google ADK modules...
+SUCCESS: Imported google.adk
+Version: 1.11.0
+Location: C:\Users\aniln\CascadeProject\Back up\azentiq_memory_manager\google_adk_repo\src\google\adk\__init__.py
+ERROR importing session: No module named 'google.adk.agent'
+ERROR importing memory: No module named 'google.adk.agent'

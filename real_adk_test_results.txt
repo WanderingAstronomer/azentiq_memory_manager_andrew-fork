@@ -1,0 +1,4 @@
+2025-08-16T15:38:07.468411 - Starting Real ADK Integration Test
+2025-08-16T15:38:13.838153 - Successfully imported Azentiq Memory Manager components
+2025-08-16T15:38:13.838563 - Failed to import Google ADK: No module named 'google.adk.agent'
+2025-08-16T15:38:13.839199 - Please ensure it's installed correctly. You can install it with: pip install google-adk
